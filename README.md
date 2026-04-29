@@ -54,7 +54,7 @@ news/
 
 ```bash
 # Clone
-git clone https://github.com/your-username/lexarag.git
+git clone https://github.com/siddharthprajapati05/LexaRAG.git
 cd lexarag
 
 # Setup environment
