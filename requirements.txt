@@ -1,12 +1,21 @@
+# === Core ===
 streamlit==1.38.0
+python-dotenv==1.0.1
+
+# === LangChain Stack ===
 langchain==0.3.7
 langchain-community==0.3.7
 langchain-core==0.3.27
 langchain-google-genai==2.0.8
+
+# === Document Processing ===
 unstructured==0.15.13
+python-magic==0.4.27
+
+# === Vector Store & Embeddings ===
 faiss-cpu==1.9.0.post1
 sentence-transformers==3.0.1
 huggingface-hub==0.25.2
+
+# === ML Runtime ===
 torch==2.5.1
-python-dotenv==1.0.1
-python-magic==0.4.27

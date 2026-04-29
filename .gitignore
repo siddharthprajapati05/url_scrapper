@@ -3,10 +3,10 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.pyc
 
 # Virtual environment
 vevv/
+venv/
 
 # Environment variables
 .env
@@ -18,8 +18,12 @@ vevv/
 *.pkl
 *.sqlite3
 
+# FAISS store
+faiss_store/
+
 # Logs
 *.log
 
-# VS Code
+# IDE
 .vscode/
+.idea/
