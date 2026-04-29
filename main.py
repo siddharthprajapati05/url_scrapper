@@ -1,5 +1,5 @@
 """
-RockyBot — AI-Powered News Research Assistant
+LexaRAG — AI-Powered News Research Assistant
 Main Streamlit application with premium dark UI, chat history,
 model selection, and industry-grade architecture.
 """
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="RockyBot — AI News Research",
+    page_title="LexaRAG — AI News Research",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -36,17 +36,17 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-    --bg-primary: #0a0e17;
-    --bg-secondary: #111827;
-    --bg-card: #1a2235;
-    --bg-card-hover: #1f2a40;
+    --bg-primary: #0d0b1a;
+    --bg-secondary: #151225;
+    --bg-card: #1c1835;
+    --bg-card-hover: #241f42;
     --accent: #7c6aef;
     --accent-light: #a78bfa;
-    --accent-glow: rgba(124, 106, 239, 0.15);
+    --accent-glow: rgba(124, 106, 239, 0.18);
     --text-primary: #e8ecf4;
     --text-secondary: #8994a8;
-    --text-muted: #4b5563;
-    --border: #293249;
+    --text-muted: #5a5478;
+    --border: #2a2545;
     --success: #34d399;
     --warning: #fbbf24;
     --error: #f87171;
@@ -138,16 +138,28 @@ h1, h2, h3 { color: var(--text-primary) !important; font-family: 'Inter', sans-s
 
 .card {
     background: var(--bg-card); border: 1px solid var(--border);
-    border-radius: 14px; padding: 22px;
+    border-radius: 14px; padding: 22px; min-height: 160px;
     transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
 }
 .card:hover {
     border-color: var(--accent); box-shadow: 0 0 24px var(--accent-glow);
     transform: translateY(-3px);
 }
-.card-icon { font-size: 1.8rem; margin-bottom: 10px; }
-.card-title { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
-.card-desc { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.55; }
+.card-icon { font-size: 1.5rem; margin-bottom: 12px; }
+.card-title { font-size: 0.92rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
+.card-desc { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.55; }
+
+.empty-state {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 60px 40px; text-align: center;
+    margin-top: 16px;
+}
+.empty-sparkle {
+    font-size: 1.6rem; color: var(--text-muted); margin-bottom: 16px;
+}
+.empty-text {
+    font-size: 0.9rem; color: var(--text-muted); line-height: 1.6;
+}
 
 .stat-box {
     background: var(--bg-card); border: 1px solid var(--border);
@@ -190,6 +202,19 @@ h1, h2, h3 { color: var(--text-primary) !important; font-family: 'Inter', sans-s
     transition: background 0.2s; word-break: break-all;
 }
 .source-chip:hover { background: rgba(124,106,239,0.22); }
+.source-chip-pdf {
+    background: rgba(52,211,153,0.10); border-color: rgba(52,211,153,0.28);
+    color: #34d399;
+}
+.source-chip-pdf:hover { background: rgba(52,211,153,0.22); }
+
+/* File uploader */
+[data-testid="stFileUploader"] {
+    background: var(--bg-card) !important;
+    border: 1px dashed var(--border) !important;
+    border-radius: var(--radius) !important;
+    padding: 8px !important;
+}
 
 .sidebar-box {
     background: var(--bg-card); border: 1px solid var(--border);
@@ -237,6 +262,7 @@ defaults = {
     "chat_history": [],           # list of {"role": "user"|"assistant", "content": ..., "sources": [...], "time": ...}
     "processing": False,
     "selected_model_idx": 0,
+    "pdf_sources": set(),         # filenames that came from PDFs (for citation styling)
 }
 for key, val in defaults.items():
     if key not in st.session_state:
@@ -254,9 +280,9 @@ with st.sidebar:
         <div style="font-size:1.25rem; font-weight:700;
              background:linear-gradient(135deg,#7c6aef,#a78bfa,#c084fc);
              -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-             background-clip:text; margin-top:2px;">RockyBot</div>
+             background-clip:text; margin-top:2px;">LexaRAG</div>
         <div style="font-size:0.72rem;color:#8994a8;margin-top:2px;">
-            AI-Powered News Research
+            AI Research Assistant
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -265,7 +291,7 @@ with st.sidebar:
 
 
     # --- URL Inputs ---
-    st.markdown('<div class="sidebar-label">📎 News Article URLs</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-label">NEWS ARTICLE URLS</div>', unsafe_allow_html=True)
 
     urls = []
     for i in range(config.max_urls):
@@ -276,6 +302,21 @@ with st.sidebar:
             key=f"url_{i}",
         )
         urls.append(url)
+
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+    # --- PDF Uploader ---
+    st.markdown('<div class="sidebar-label">UPLOAD PDFS</div>', unsafe_allow_html=True)
+    uploaded_pdfs = st.file_uploader(
+        "Upload PDFs",
+        type=["pdf"],
+        accept_multiple_files=True,
+        label_visibility="collapsed",
+        key="pdf_uploader",
+    )
+    if uploaded_pdfs and len(uploaded_pdfs) > 3:
+        st.warning("⚠️ Max 3 PDFs allowed. Only the first 3 will be processed.")
+        uploaded_pdfs = uploaded_pdfs[:3]
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
@@ -292,23 +333,10 @@ with st.sidebar:
 
     st.markdown('<div class="gradient-bar"></div>', unsafe_allow_html=True)
 
-    # How it works
-    st.markdown("""
-    <div class="sidebar-box">
-        <div class="sidebar-label">💡 How it works</div>
-        <div style="font-size:0.8rem;color:#8994a8;line-height:1.65;">
-            <b>1.</b> Paste up to 3 article URLs<br>
-            <b>2.</b> Click <b style="color:#a78bfa;">Process</b> to analyze<br>
-            <b>3.</b> Ask questions in the chat<br>
-            <b>4.</b> Get cited answers instantly
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
     # Powered by
     active_model = AVAILABLE_MODELS[st.session_state.selected_model_idx]
     st.markdown(f"""
-    <div style="text-align:center;padding-top:8px;">
+    <div style="text-align:center;padding-top:4px;">
         <div style="font-size:0.68rem;color:#4b5563;">
             Powered by <b style="color:#a78bfa;">{active_model.name}</b> · FAISS · HuggingFace
         </div>
@@ -335,9 +363,9 @@ vs_manager = VectorStoreManager(config)
 # --- Hero ---
 st.markdown("""
 <div class="fade-up">
-    <div class="hero-title">News Research Assistant</div>
+    <div class="hero-title">AI-Powered Research Assistant</div>
     <div class="hero-sub">
-        Paste news article URLs, and ask intelligent questions — powered by semantic search and Google Gemini.
+        Paste URLs or upload PDFs — get cited answers via semantic search and Gemini
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -349,10 +377,10 @@ st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 if not st.session_state.retriever and not process_clicked:
     cols = st.columns(4)
     features = [
-        ("🔗", "Multi-URL Ingestion", "Analyze up to 3 news articles at once with intelligent deduplication."),
-        ("🧠", "Semantic Search", "FAISS vectors + normalized embeddings for precise retrieval."),
-        ("⚡", "Gemini AI", "Google's latest models deliver fast, accurate, cited answers."),
-        ("💬", "Chat History", "Full conversation memory — ask follow-up questions naturally."),
+        ("🔗", "Multi-URL ingestion", "Analyze up to 3 news articles simultaneously"),
+        ("📄", "PDF support", "Upload PDFs alongside URLs, indexed together"),
+        ("⚡", "Gemini AI", "Fast, accurate answers with source citations"),
+        ("💬", "Chat history", "Full memory for natural follow-up questions"),
     ]
     for col, (icon, title, desc) in zip(cols, features):
         with col:
@@ -365,9 +393,10 @@ if not st.session_state.retriever and not process_clicked:
             """, unsafe_allow_html=True)
 
     st.markdown("""
-    <div style="text-align:center;padding:40px 0 20px;">
-        <div style="color:#4b5563;font-size:0.88rem;">
-            👈 Paste your news article URLs in the sidebar to get started
+    <div class="empty-state fade-up">
+        <div class="empty-sparkle">✦</div>
+        <div class="empty-text">
+            Paste URLs and/or upload PDFs in the sidebar to get started
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -380,74 +409,117 @@ status_area = st.empty()
 
 if process_clicked:
     raw_urls = [u for u in urls if u.strip()]
+    has_urls = bool(raw_urls)
+    has_pdfs = bool(uploaded_pdfs)
 
-    if not raw_urls:
-        st.sidebar.error("⚠️ Provide at least one URL.")
+    if not has_urls and not has_pdfs:
+        st.sidebar.error("⚠️ Provide at least one URL or upload a PDF.")
     else:
-        # Validate URLs first
-        invalid = [u for u in raw_urls if not DocumentProcessor.validate_url(u)]
-        if invalid:
-            for u in invalid:
-                st.sidebar.warning(f"⚠️ Invalid URL skipped: {u[:50]}...")
+        # Warn about invalid URLs (don't abort if PDFs are present)
+        if has_urls:
+            invalid = [u for u in raw_urls if not DocumentProcessor.validate_url(u)]
+            if invalid:
+                for u in invalid:
+                    st.sidebar.warning(f"⚠️ Invalid URL skipped: {u[:50]}...")
 
-        valid_urls = DocumentProcessor.clean_urls(raw_urls)
-        if not valid_urls:
-            st.sidebar.error("No valid URLs to process.")
-        else:
-            try:
-                # Step 1
+        valid_urls = DocumentProcessor.clean_urls(raw_urls) if has_urls else []
+
+        try:
+            all_docs = []
+            all_errors = []
+            url_count = 0
+            pdf_count = 0
+            pdf_filenames = set()
+
+            # --- Load URL documents ---
+            if valid_urls:
                 status_area.markdown("""
                 <div class="processing-step fade-up">
                     <span style="font-size:1.2rem">📥</span>
-                    <span>Loading articles...</span>
+                    <span>Loading articles from URLs...</span>
+                </div>
+                """, unsafe_allow_html=True)
+                url_docs, url_errors = doc_processor.load_documents(valid_urls)
+                all_docs.extend(url_docs)
+                all_errors.extend(url_errors)
+                url_count = len(valid_urls)
+
+            # --- Load PDF documents ---
+            if has_pdfs:
+                status_area.markdown("""
+                <div class="processing-step fade-up">
+                    <span style="font-size:1.2rem">📄</span>
+                    <span>Loading PDF files...</span>
+                </div>
+                """, unsafe_allow_html=True)
+                pdf_docs, pdf_errors = doc_processor.load_pdfs(uploaded_pdfs)
+                all_docs.extend(pdf_docs)
+                all_errors.extend(pdf_errors)
+                pdf_count = len(uploaded_pdfs)
+                pdf_filenames = {f.name for f in uploaded_pdfs}
+
+            # --- Show any errors ---
+            if all_errors:
+                for err in all_errors:
+                    st.error(f"❌ {err}")
+
+            if not all_docs:
+                st.warning("⚠️ No content was extracted. Check your URLs and PDFs.")
+                status_area.empty()
+            else:
+                # --- Build vector store ---
+                status_area.markdown("""
+                <div class="processing-step fade-up">
+                    <span style="font-size:1.2rem">🧬</span>
+                    <span>Building vector store...</span>
                 </div>
                 """, unsafe_allow_html=True)
 
-                chunks, metadata, errors = doc_processor.process(valid_urls)
+                chunks = doc_processor.split_documents(all_docs)
+                vectorstore = vs_manager.create_store(chunks)
+                retriever = vs_manager.get_retriever(vectorstore)
 
-                if errors:
-                    for err in errors:
-                        st.error(f"❌ {err}")
-                    status_area.empty()
-                elif not chunks:
-                    st.warning("⚠️ No content was extracted. Check your URLs.")
-                    status_area.empty()
-                else:
-                    # Step 2
-                    status_area.markdown("""
-                    <div class="processing-step fade-up">
-                        <span style="font-size:1.2rem">🧬</span>
-                        <span>Building vector store...</span>
-                    </div>
-                    """, unsafe_allow_html=True)
+                metadata = {
+                    "total_urls": url_count,
+                    "total_pdfs": pdf_count,
+                    "total_chunks": len(chunks),
+                    "avg_chunk_size": sum(len(c.page_content) for c in chunks) // max(len(chunks), 1),
+                    "sources": list(set(doc.metadata.get("source", "Unknown") for doc in all_docs)),
+                }
 
-                    vectorstore = vs_manager.create_store(chunks)
-                    retriever = vs_manager.get_retriever(vectorstore)
-
-                    # Save to session
-                    st.session_state.retriever = retriever
-                    st.session_state.vectorstore = vectorstore
-                    st.session_state.metadata = metadata
-                    st.session_state.chat_history = []
-                    status_area.empty()
-
-                    st.markdown(f"""
-                    <div style="background:var(--bg-card);border:1px solid var(--success);
-                         border-radius:14px;padding:20px;text-align:center;" class="fade-up">
-                        <div style="font-size:1.8rem;margin-bottom:6px;">✅</div>
-                        <div style="font-size:1rem;font-weight:600;color:var(--success);">
-                            {metadata['total_urls']} article(s) processed — {metadata['total_chunks']} chunks indexed
-                        </div>
-                        <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">
-                            Ready for questions
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            except Exception as e:
+                # Save to session
+                st.session_state.retriever = retriever
+                st.session_state.vectorstore = vectorstore
+                st.session_state.metadata = metadata
+                st.session_state.pdf_sources = pdf_filenames
+                st.session_state.chat_history = []
                 status_area.empty()
-                logger.exception("Processing failed")
-                st.error(f"❌ Processing failed: {e}")
+
+                # Build a friendly summary line
+                parts = []
+                if url_count:
+                    parts.append(f"{url_count} URL{'s' if url_count > 1 else ''}")
+                if pdf_count:
+                    parts.append(f"{pdf_count} PDF{'s' if pdf_count > 1 else ''}")
+                summary = " + ".join(parts)
+
+                st.markdown(f"""
+                <div style="background:var(--bg-card);border:1px solid var(--success);
+                     border-radius:14px;padding:20px;text-align:center;" class="fade-up">
+                    <div style="font-size:1.8rem;margin-bottom:6px;">✅</div>
+                    <div style="font-size:1rem;font-weight:600;color:var(--success);">
+                        {summary} processed — {len(chunks)} chunks indexed
+                    </div>
+                    <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">
+                        Ready for questions
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        except Exception as e:
+            status_area.empty()
+            logger.exception("Processing failed")
+            st.error(f"❌ Processing failed: {e}")
 
 
 # ╔══════════════════════════════════════════════════════════════╗
@@ -459,9 +531,9 @@ if st.session_state.retriever:
     meta = st.session_state.metadata
     c1, c2, c3, c4 = st.columns(4)
     stats = [
-        (str(meta.get("total_urls", 0)), "Articles"),
+        (str(meta.get("total_urls", 0)), "URLs"),
+        (str(meta.get("total_pdfs", 0)), "PDFs"),
         (str(meta.get("total_chunks", 0)), "Chunks"),
-        (f'{meta.get("avg_chunk_size", 0)}', "Avg Chars"),
         (str(len(st.session_state.chat_history) // 2), "Questions"),
     ]
     for col, (val, lbl) in zip([c1, c2, c3, c4], stats):
@@ -484,20 +556,27 @@ if st.session_state.retriever:
             with st.chat_message("assistant", avatar="🤖"):
                 st.markdown(msg["content"])
 
-                # Sources
+                # Sources — distinguish PDF (📄) from URL (🔗) visually
+                pdf_srcs = st.session_state.get("pdf_sources", set())
                 valid_sources = [s for s in msg.get("sources", []) if s.get("url") and s["url"] != "Unknown"]
                 if valid_sources:
                     st.markdown("---")
-                    st.caption("📄 SOURCES")
+                    st.caption("SOURCES")
+                    chips_html = ""
                     for s in valid_sources:
-                        st.markdown(f"🔗 {s['url']}")
+                        src = s["url"]
+                        is_pdf = src in pdf_srcs
+                        chip_class = "source-chip source-chip-pdf" if is_pdf else "source-chip"
+                        icon = "📄" if is_pdf else "🔗"
+                        chips_html += f'<span class="{chip_class}">{icon} {src}</span>'
+                    st.markdown(f'<div style="margin-top:6px">{chips_html}</div>', unsafe_allow_html=True)
 
                 # Response time
                 if msg.get("time"):
                     st.caption(f"⏱ Answered in {msg['time']:.1f}s")
 
     # --- Query Input ---
-    query = st.chat_input("Ask a question about the articles...")
+    query = st.chat_input("Ask anything about your documents...")
 
     if query:
         # Add user message

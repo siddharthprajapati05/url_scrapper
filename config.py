@@ -51,7 +51,7 @@ class AppConfig:
 
     # --- App ---
     max_urls: int = 3
-    app_title: str = "RockyBot"
+    app_title: str = "LexaRAG"
     app_description: str = "AI-Powered News Research Assistant"
 
     def validate(self) -> list[str]:

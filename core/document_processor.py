@@ -1,14 +1,17 @@
 """
 Document processing module.
 Handles URL validation, loading, and text splitting with robust error handling.
+Supports both web URLs (via UnstructuredURLLoader) and PDF files (via PyPDFLoader).
 """
 
-import re
+import os
 import logging
+import tempfile
 from urllib.parse import urlparse
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import UnstructuredURLLoader
+from langchain_community.document_loaders import PyPDFLoader
 
 from config import AppConfig
 
@@ -86,6 +89,57 @@ class DocumentProcessor:
                 errors.append(f"Failed to load articles: {error_msg}")
 
             return [], errors
+
+    def load_pdfs(self, uploaded_files):
+        """
+        Load documents from a list of Streamlit UploadedFile objects (PDFs).
+        Returns (documents, errors) tuple — same pattern as load_documents.
+        """
+        if not uploaded_files:
+            return [], []
+
+        all_docs = []
+        errors = []
+
+        for uploaded_file in uploaded_files:
+            tmp_path = None
+            try:
+                # Write to a named temp file so PyPDFLoader can read it from disk
+                with tempfile.NamedTemporaryFile(
+                    suffix=".pdf", delete=False
+                ) as tmp:
+                    tmp.write(uploaded_file.read())
+                    tmp_path = tmp.name
+
+                loader = PyPDFLoader(tmp_path)
+                docs = loader.load()
+
+                # Tag every page with the original filename instead of the temp path
+                for doc in docs:
+                    doc.metadata["source"] = uploaded_file.name
+
+                all_docs.extend(docs)
+                logger.info(
+                    f"Loaded {len(docs)} page(s) from PDF '{uploaded_file.name}'"
+                )
+
+            except Exception as e:
+                error_msg = str(e)
+                logger.error(
+                    f"Error loading PDF '{uploaded_file.name}': {error_msg}"
+                )
+                errors.append(
+                    f"Failed to load '{uploaded_file.name}': {error_msg}"
+                )
+            finally:
+                # Always clean up the temp file
+                if tmp_path and os.path.exists(tmp_path):
+                    try:
+                        os.remove(tmp_path)
+                    except OSError:
+                        pass
+
+        return all_docs, errors
 
     def split_documents(self, documents):
         """Split documents into chunks for embedding."""

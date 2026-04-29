@@ -1,4 +1,4 @@
-"""Core application logic for RockyBot."""
+"""Core application logic for LexaRAG."""
 
 from core.document_processor import DocumentProcessor
 from core.llm_manager import LLMManager
